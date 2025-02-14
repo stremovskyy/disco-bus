@@ -1,4 +1,3 @@
-// file: drivers/memory_driver/memory.go
 package memory_driver
 
 import (
