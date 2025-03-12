@@ -134,9 +134,9 @@ func (m *memoryDriver) Unsubscribe(topic string) error {
 	return nil
 }
 
-// AcquireLock tries to acquire a distributed lock identified by lockName.
+// Acquire tries to acquire a distributed lock identified by lockName.
 // If the lock is not already held or has expired, it sets a default expiration.
-func (m *memoryDriver) AcquireLock(ctx context.Context, lockName string) (bool, error) {
+func (m *memoryDriver) Acquire(ctx context.Context, lockName string) (bool, error) {
 	if lockName == "" {
 		return false, errors.New("lock key cannot be empty")
 	}
@@ -172,7 +172,7 @@ func (m *memoryDriver) AcquireLock(ctx context.Context, lockName string) (bool, 
 }
 
 // ReleaseLock releases a lock. Returns an error if the lock was not held.
-func (m *memoryDriver) ReleaseLock(ctx context.Context, lockName string) error {
+func (m *memoryDriver) Release(ctx context.Context, lockName string) error {
 	if lockName == "" {
 		return errors.New("lock key cannot be empty")
 	}
@@ -214,6 +214,38 @@ func (m *memoryDriver) Expire(ctx context.Context, key string, duration time.Dur
 			m.locksMutex.Unlock()
 		},
 	)
+	lock.expiration = expiration
+	lock.timer = timer
+	return nil
+}
+
+// Refresh resets the expiration for a key (lock) to the given duration.
+func (m *memoryDriver) Refresh(ctx context.Context, key string, duration time.Duration) error {
+	if key == "" {
+		return errors.New("key cannot be empty")
+	}
+
+	m.locksMutex.Lock()
+	defer m.locksMutex.Unlock()
+
+	lock, exists := m.locks[key]
+	if !exists {
+		return errors.New("key does not exist")
+	}
+
+	if lock.timer != nil {
+		lock.timer.Stop()
+	}
+
+	expiration := time.Now().Add(duration)
+	timer := time.AfterFunc(
+		duration, func() {
+			m.locksMutex.Lock()
+			delete(m.locks, key)
+			m.locksMutex.Unlock()
+		},
+	)
+
 	lock.expiration = expiration
 	lock.timer = timer
 	return nil

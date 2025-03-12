@@ -112,7 +112,7 @@ Manage critical sections by acquiring and releasing distributed locks:
 
 ```go
 lockKey := "my-critical-task"
-acquired, err := bus.AcquireLock(ctx, lockKey)
+acquired, err := bus.Lock().Acquire(ctx, lockKey)
 if err != nil {
 	log.Fatalf("Error acquiring lock: %v", err)
 }

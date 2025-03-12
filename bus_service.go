@@ -17,6 +17,16 @@ import (
 type svc struct {
 	state  atomic.Value
 	driver drivers.Driver
+	pubSub PubSub
+	lock   Lock
+}
+
+type lock struct {
+	driver drivers.Driver
+}
+
+type pubSub struct {
+	driver drivers.Driver
 }
 
 // Error types for better error handling
@@ -31,6 +41,8 @@ var (
 func NewDiscoBus(driver drivers.Driver) Bus {
 	s := &svc{
 		driver: driver,
+		pubSub: &pubSub{driver: driver},
+		lock:   &lock{driver: driver},
 	}
 
 	return s
@@ -44,7 +56,15 @@ func NewDefaultMemoryDiscoBus() Bus {
 	return NewDiscoBus(memory_driver.NewMemoryDriver())
 }
 
-func (s *svc) PublishToTopic(ctx context.Context, topic string, message []byte) (int64, error) {
+func (s *svc) PubSub() PubSub {
+	return s.pubSub
+}
+
+func (s *svc) Lock() Lock {
+	return s.lock
+}
+
+func (s *pubSub) Publish(ctx context.Context, topic string, message []byte) (int64, error) {
 	if topic == "" {
 		return 0, ErrTopicEmpty
 	}
@@ -75,7 +95,7 @@ func (s *svc) PublishToTopic(ctx context.Context, topic string, message []byte) 
 	return msgID, nil
 }
 
-func (s *svc) SubscribeHandler(ctx context.Context, topic string, handler func([]byte) error) error {
+func (s *pubSub) SubscribeHandler(ctx context.Context, topic string, handler func([]byte) error) error {
 	if topic == "" {
 		return ErrTopicEmpty
 	}
@@ -115,7 +135,7 @@ func (s *svc) SubscribeHandler(ctx context.Context, topic string, handler func([
 	return s.driver.Subscribe(ctx, topic, safeHandler)
 }
 
-func (s *svc) UnsubscribeFromTopic(topicName string) {
+func (s *pubSub) Unsubscribe(topicName string) {
 	if err := s.driver.Unsubscribe(topicName); err != nil {
 		log.Error().Err(err).Str("topic", topicName).Msg("Failed to unsubscribe from topic")
 	}
@@ -130,7 +150,7 @@ func (s *svc) Stop() error {
 	return s.driver.Close()
 }
 
-func (s *svc) AcquireLock(ctx context.Context, lockKey string) (bool, error) {
+func (s *lock) Acquire(ctx context.Context, lockKey string) (bool, error) {
 	if lockKey == "" {
 		return false, errors.New("lock key cannot be empty")
 	}
@@ -142,7 +162,7 @@ func (s *svc) AcquireLock(ctx context.Context, lockKey string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	acquired, err := s.driver.AcquireLock(ctx, lockKey)
+	acquired, err := s.driver.Acquire(ctx, lockKey)
 	if err != nil {
 		monitoring.LockOperations.WithLabelValues("acquire", "error").Inc()
 		return false, err
@@ -157,12 +177,12 @@ func (s *svc) AcquireLock(ctx context.Context, lockKey string) (bool, error) {
 	return acquired, nil
 }
 
-func (s *svc) ReleaseLock(ctx context.Context, lockKey string) error {
+func (s *lock) Release(ctx context.Context, lockKey string) error {
 	if lockKey == "" {
 		return errors.New("lock key cannot be empty")
 	}
 
-	err := s.driver.ReleaseLock(ctx, lockKey)
+	err := s.driver.Release(ctx, lockKey)
 	if err != nil {
 		monitoring.LockOperations.WithLabelValues("release", "error").Inc()
 		return err
@@ -172,6 +192,10 @@ func (s *svc) ReleaseLock(ctx context.Context, lockKey string) error {
 	return nil
 }
 
-func (s *svc) Expire(ctx context.Context, lockKey string, duration time.Duration) error {
+func (s *lock) Expire(ctx context.Context, lockKey string, duration time.Duration) error {
 	return s.driver.Expire(ctx, lockKey, duration)
+}
+
+func (s *lock) Refresh(ctx context.Context, key string, duration time.Duration) error {
+	return s.driver.Refresh(ctx, key, duration)
 }

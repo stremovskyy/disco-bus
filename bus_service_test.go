@@ -45,17 +45,22 @@ func (m *MockDriver) Unsubscribe(topic string) error {
 	return args.Error(0)
 }
 
-func (m *MockDriver) AcquireLock(ctx context.Context, lockName string) (bool, error) {
+func (m *MockDriver) Acquire(ctx context.Context, lockName string) (bool, error) {
 	args := m.Called(ctx, lockName)
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockDriver) ReleaseLock(ctx context.Context, lockName string) error {
+func (m *MockDriver) Release(ctx context.Context, lockName string) error {
 	args := m.Called(ctx, lockName)
 	return args.Error(0)
 }
 
 func (m *MockDriver) Expire(ctx context.Context, key string, duration time.Duration) error {
+	args := m.Called(ctx, key, duration)
+	return args.Error(0)
+}
+
+func (m *MockDriver) Refresh(ctx context.Context, key string, duration time.Duration) error {
 	args := m.Called(ctx, key, duration)
 	return args.Error(0)
 }
@@ -115,7 +120,7 @@ func TestPublishToTopic(t *testing.T) {
 					tt.setupMock()
 				}
 
-				msgID, err := svc.PublishToTopic(context.Background(), tt.topic, tt.message)
+				msgID, err := svc.PubSub().Publish(context.Background(), tt.topic, tt.message)
 
 				if tt.wantErr {
 					assert.Error(t, err)
@@ -133,7 +138,7 @@ func TestPublishToTopic(t *testing.T) {
 	}
 }
 
-func TestAcquireLock(t *testing.T) {
+func TestAcquire(t *testing.T) {
 	mockDriver := new(MockDriver)
 	svc := NewDiscoBus(mockDriver)
 
@@ -149,7 +154,7 @@ func TestAcquireLock(t *testing.T) {
 			name:    "successful lock acquisition",
 			lockKey: "test-lock",
 			setupMock: func() {
-				mockDriver.On("AcquireLock", mock.Anything, "test-lock").
+				mockDriver.On("Acquire", mock.Anything, "test-lock").
 					Return(true, nil)
 			},
 			want:    true,
@@ -174,7 +179,7 @@ func TestAcquireLock(t *testing.T) {
 					tt.setupMock()
 				}
 
-				got, err := svc.AcquireLock(context.Background(), tt.lockKey)
+				got, err := svc.Lock().Acquire(context.Background(), tt.lockKey)
 
 				if tt.wantErr {
 					assert.Error(t, err)
@@ -207,7 +212,7 @@ func TestHighLoadPublishing(t *testing.T) {
 	errs := make(chan error, numMessages)
 	for i := 0; i < numMessages; i++ {
 		go func() {
-			if _, err := svc.PublishToTopic(ctx, topic, message); err != nil {
+			if _, err := svc.PubSub().Publish(ctx, topic, message); err != nil {
 				errs <- err
 			} else {
 				errs <- nil

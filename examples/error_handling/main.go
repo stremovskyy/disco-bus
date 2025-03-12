@@ -27,7 +27,7 @@ func main() {
 	defer bus.Stop()
 
 	// Subscribe with error handling
-	err := bus.SubscribeHandler(
+	err := bus.PubSub().SubscribeHandler(
 		ctx, "orders", func(msg []byte) error {
 			// Simulate processing
 			if len(msg) == 0 {
@@ -46,7 +46,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	msgID, err := bus.PublishToTopic(ctx, "orders", []byte(`{"order_id": "123"}`))
+	msgID, err := bus.PubSub().Publish(ctx, "orders", []byte(`{"order_id": "123"}`))
 	if err != nil {
 		log.Printf("Failed to publish: %v", err)
 	} else {

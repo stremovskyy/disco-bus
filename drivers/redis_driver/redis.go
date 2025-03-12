@@ -223,7 +223,7 @@ func (d *redisDriver) Unsubscribe(topic string) error {
 	return d.workers[workerIndex].RemoveSubscription(topic)
 }
 
-func (d *redisDriver) AcquireLock(ctx context.Context, lockName string) (bool, error) {
+func (d *redisDriver) Acquire(ctx context.Context, lockName string) (bool, error) {
 	result, err := d.writer.SetNX(ctx, lockName, "lock", d.options.LockExpiration).Result()
 	if err != nil {
 		return false, fmt.Errorf("failed to acquire lock: %w", err)
@@ -231,7 +231,7 @@ func (d *redisDriver) AcquireLock(ctx context.Context, lockName string) (bool, e
 	return result, nil
 }
 
-func (d *redisDriver) ReleaseLock(ctx context.Context, lockName string) error {
+func (d *redisDriver) Release(ctx context.Context, lockName string) error {
 	script := redis.NewScript(
 		`
 		if redis.call("GET", KEYS[1]) == ARGV[1] then
@@ -277,6 +277,10 @@ func (d *redisDriver) selectWorkerForSubscription() *Worker {
 }
 
 func (d *redisDriver) Expire(ctx context.Context, key string, duration time.Duration) error {
+	return d.writer.Expire(ctx, key, duration).Err()
+}
+
+func (d *redisDriver) Refresh(ctx context.Context, key string, duration time.Duration) error {
 	return d.writer.Expire(ctx, key, duration).Err()
 }
 

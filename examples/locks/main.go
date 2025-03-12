@@ -19,7 +19,7 @@ func main() {
 
 	// Try to acquire a lock
 	lockKey := "my-critical-task"
-	acquired, err := bus.AcquireLock(ctx, lockKey)
+	acquired, err := bus.Lock().Acquire(ctx, lockKey)
 	if err != nil {
 		log.Fatalf("Error acquiring lock: %v", err)
 	}
@@ -28,16 +28,21 @@ func main() {
 		log.Println("Lock acquired, performing critical task...")
 
 		// Set expiration for the lock
-		err = bus.Expire(ctx, lockKey, time.Second*30)
+		err = bus.Lock().Expire(ctx, lockKey, time.Second*10)
 		if err != nil {
 			log.Printf("Failed to set expiration: %v", err)
+		}
+
+		err = bus.Lock().Refresh(ctx, lockKey, time.Second*60)
+		if err != nil {
+			log.Printf("Failed to refresh lock: %v", err)
 		}
 
 		// Simulate some work
 		time.Sleep(time.Second * 5)
 
 		// Release the lock
-		if err := bus.ReleaseLock(ctx, lockKey); err != nil {
+		if err := bus.Lock().Release(ctx, lockKey); err != nil {
 			log.Printf("Failed to release lock: %v", err)
 		}
 		log.Println("Lock released")

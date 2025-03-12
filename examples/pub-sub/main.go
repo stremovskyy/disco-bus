@@ -20,7 +20,7 @@ func main() {
 	defer bus.Stop()
 
 	// Subscribe to a topic
-	err := bus.SubscribeHandler(
+	err := bus.PubSub().SubscribeHandler(
 		ctx, "notifications", func(msg []byte) error {
 			log.Printf("Received message: %s", string(msg))
 			return nil
@@ -31,7 +31,7 @@ func main() {
 	}
 
 	// Publish a message
-	msgID, err := bus.PublishToTopic(ctx, "notifications", []byte("Hello, World!"))
+	msgID, err := bus.PubSub().Publish(ctx, "notifications", []byte("Hello, World!"))
 	if err != nil {
 		log.Fatalf("Failed to publish: %v", err)
 	}

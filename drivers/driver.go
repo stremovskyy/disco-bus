@@ -24,12 +24,15 @@ type Driver interface {
 	// Unsubscribe unsubscribes from the topic
 	Unsubscribe(topic string) error
 
-	// AcquireLock acquires a distributed lock
-	AcquireLock(ctx context.Context, lockName string) (bool, error)
+	// Acquire acquires a distributed lock
+	Acquire(ctx context.Context, lockName string) (bool, error)
 
 	// ReleaseLock releases a distributed lock
-	ReleaseLock(ctx context.Context, lockName string) error
+	Release(ctx context.Context, lockName string) error
 
 	// Expire sets a key expiration
 	Expire(ctx context.Context, key string, duration time.Duration) error
+
+	// Refresh refreshes a key expiration
+	Refresh(ctx context.Context, key string, duration time.Duration) error
 }
