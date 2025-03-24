@@ -14,6 +14,8 @@ type Config struct {
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
 	PoolSize        int
+	IsCluster       bool
+	ClusterNodes    []string
 }
 
 func DefaultRedisConfig() Config {
@@ -26,6 +28,8 @@ func DefaultRedisConfig() Config {
 		MaxIdleConns:    5,
 		ConnMaxLifetime: 5 * time.Minute,
 		PoolSize:        10,
+		IsCluster:       false,
+		ClusterNodes:    nil,
 	}
 }
 

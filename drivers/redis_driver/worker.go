@@ -29,7 +29,7 @@ type Worker struct {
 	gunzipBufferMutex *sync.Mutex
 }
 
-func NewWorker(ownIndex int, client *redis.Client, _ int) *Worker {
+func NewWorker(ownIndex int, client redis.UniversalClient, _ int) *Worker {
 	return &Worker{
 		handlers: make(map[string]func(m *redis.Message) error),
 		OwnIndex: ownIndex,
@@ -57,7 +57,7 @@ func (w *Worker) Start(ctx context.Context) {
 				continue
 			}
 
-			// Process each message in its own goroutine (if ordering isn’t critical).
+			// Process each message in its own goroutine (if ordering isn't critical).
 			go func(msg *redis.Message) {
 				if err := handler(msg); err != nil {
 					log.Error().Err(err).Msgf("failed to handle message for topic %s", topic)

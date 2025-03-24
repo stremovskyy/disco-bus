@@ -29,8 +29,8 @@ type redisDriver struct {
 
 	workers            []*Worker
 	options            *Options
-	reader             *redis.Client
-	writer             *redis.Client
+	reader             redis.UniversalClient
+	writer             redis.UniversalClient
 	subsStarted        bool
 	subscriptionsIndex map[string]int // topic -> worker index
 	zipBuffer          *bytes.Buffer
@@ -85,20 +85,40 @@ func DefaultRedisDriver() drivers.Driver {
 func (d *redisDriver) Connect(ctx context.Context) error {
 	d.ctx, d.cancelFunc = context.WithCancel(context.Background())
 
-	d.writer = redis.NewClient(
-		&redis.Options{
-			MaxRetries:      d.options.MaxRetries,
-			Addr:            d.options.Writer.DSN(),
+	if d.options.Writer.IsCluster {
+		d.writer = redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs:           d.options.Writer.ClusterNodes,
 			Password:        d.options.Writer.Password,
-			DB:              d.options.Writer.DB,
+			MaxRetries:      d.options.MaxRetries,
 			MaxIdleConns:    d.options.Writer.MaxIdleConns,
 			ConnMaxLifetime: d.options.Writer.ConnMaxLifetime,
 			PoolSize:        d.options.Writer.PoolSize,
-		},
-	)
+		})
+	} else {
+		d.writer = redis.NewClient(
+			&redis.Options{
+				MaxRetries:      d.options.MaxRetries,
+				Addr:            d.options.Writer.DSN(),
+				Password:        d.options.Writer.Password,
+				DB:              d.options.Writer.DB,
+				MaxIdleConns:    d.options.Writer.MaxIdleConns,
+				ConnMaxLifetime: d.options.Writer.ConnMaxLifetime,
+				PoolSize:        d.options.Writer.PoolSize,
+			},
+		)
+	}
 
 	if d.options.Reader == nil {
 		d.reader = d.writer
+	} else if d.options.Reader.IsCluster {
+		d.reader = redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs:           d.options.Reader.ClusterNodes,
+			Password:        d.options.Reader.Password,
+			MaxRetries:      d.options.MaxRetries,
+			MaxIdleConns:    d.options.Reader.MaxIdleConns,
+			ConnMaxLifetime: d.options.Reader.ConnMaxLifetime,
+			PoolSize:        d.options.Reader.PoolSize,
+		})
 	} else {
 		d.reader = redis.NewClient(
 			&redis.Options{

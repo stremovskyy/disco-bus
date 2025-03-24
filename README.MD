@@ -4,19 +4,23 @@ _Discovery Bus (Disco Bus)_ is a high-performance, distributed messaging bus wri
 
 ## Table of Contents
 
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-  - [Starting the Bus](#starting-the-bus)
-  - [Publishing Messages](#publishing-messages)
-  - [Subscribing to Topics](#subscribing-to-topics)
-  - [Distributed Locks](#distributed-locks)
-- [Architecture](#architecture)
-- [Examples](#examples)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
+- [Disco Bus](#disco-bus)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [Starting the Bus](#starting-the-bus)
+      - [Standard Redis Mode](#standard-redis-mode)
+      - [Redis Cluster Mode](#redis-cluster-mode)
+    - [Publishing Messages](#publishing-messages)
+    - [Subscribing to Topics](#subscribing-to-topics)
+    - [Distributed Locks](#distributed-locks)
+  - [Architecture](#architecture)
+  - [Examples](#examples)
+  - [Testing](#testing)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [Acknowledgements](#acknowledgements)
 
 ## Features
 
@@ -59,7 +63,11 @@ import (
 
 	"github.com/stremovskyy/disco-bus"
 )
+```
 
+#### Standard Redis Mode
+
+```go
 func main() {
 	// Create a new Disco Bus instance with the default Redis driver
 	bus := disco.NewDefaultDiscoBus()
@@ -74,6 +82,40 @@ func main() {
 	// The bus is now ready for publishing and subscribing
 }
 ```
+
+#### Redis Cluster Mode
+
+```go
+func main() {
+	// Create Redis Cluster configuration
+	options := redis_driver.DefaultOptions()
+	options.Writer.IsCluster = true
+	options.Writer.ClusterNodes = []string{
+		"redis-cluster-1:6379",
+		"redis-cluster-2:6379",
+		"redis-cluster-3:6379",
+	}
+	options.Writer.Password = "your-password" // if required
+
+	// Create a new Disco Bus instance with the Redis Cluster driver
+	bus := disco.NewDiscoBus(redis_driver.NewRedisDriver(&options))
+	ctx := context.Background()
+
+	// Start the bus
+	if err := bus.Start(ctx); err != nil {
+		log.Fatalf("Failed to start bus: %v", err)
+	}
+	defer bus.Stop()
+
+	// The bus is now ready for publishing and subscribing
+}
+```
+
+When using Redis Cluster mode:
+- Provide all cluster node addresses in the `ClusterNodes` slice
+- The password should be the same for all nodes in the cluster
+- The cluster mode will automatically handle node discovery and failover
+- Note that Redis Cluster mode doesn't support database selection (DB parameter is ignored)
 
 ### Publishing Messages
 
